@@ -34,6 +34,14 @@
         }
       ]
     ],
+    "dependencies": {
+      "expo-camera": "^13.0.0" // expo-camera'nın doğru versiyonunu buraya eklemelisin
+    },
+    "camera": {
+      "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+      "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+      "recordAudioAndroid": true
+    },
     "experiments": {
       "typedRoutes": true
     }

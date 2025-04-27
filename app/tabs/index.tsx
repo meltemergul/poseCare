@@ -1,10 +1,11 @@
 import { View, StyleSheet, ImageBackground, Alert } from 'react-native';
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import Button from '@/components/Button';
 
 export default function Index() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-
+  const router = useRouter();
   const handleStart = () => {
     if (selectedOption) {
       Alert.alert(`Seçilen egzersiz: ${selectedOption}`);
@@ -40,7 +41,7 @@ export default function Index() {
               label="Başla"
               onPress={() => {
                 if (selectedOption) {
-                  alert(`Seçilen egzersiz: ${selectedOption}`);
+                  router.push("/tabs/cameraScreen"); // veya dosya yolu farklıysa ona göre ayarla
                 } else {
                   alert("Lütfen bir egzersiz seçin.");
                 }

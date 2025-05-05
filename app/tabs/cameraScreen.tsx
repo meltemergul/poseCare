@@ -1,48 +1,44 @@
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useEffect, useRef, useState } from 'react';
-import { Button, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function App() {
     const [facing, setFacing] = useState<CameraType>('back');
     const [permission, requestPermission] = useCameraPermissions();
     const cameraRef = useRef<CameraView>(null);
+
     const [squatAngle, setSquatAngle] = useState<number | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [squatStatus, setSquatStatus] = useState<'Doğru' | 'Yanlış' | null>(null);
 
-    if (!permission) return <View />;
-    if (!permission.granted) {
-        return (
-            <View style={styles.container}>
-                <Text>İzin gerekiyor</Text>
-                <Button onPress={requestPermission} title="İzin Ver" />
-            </View>
-        );
-    }
+    useEffect(() => {
+        let interval: ReturnType<typeof setInterval>;
 
-    function toggleCameraFacing() {
-        setFacing(current => (current === 'back' ? 'front' : 'back'));
-    }
 
-    async function captureAndSendPhoto() {
-        if (!cameraRef.current) {
-            console.error('Kamera referansı yok');
-            return;
+        if (permission?.granted) {
+            interval = setInterval(() => {
+                captureAndSendFrame();
+            }, 1000); // 1 saniyede 1 kere gönder
         }
 
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [permission]);
+
+    const toggleCameraFacing = () => {
+        setFacing((current) => (current === 'back' ? 'front' : 'back'));
+    };
+
+    const captureAndSendFrame = async () => {
+        if (!cameraRef.current) return;
+
         try {
-            setLoading(true);
+            const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.5 });
 
-            const photo = await cameraRef.current.takePictureAsync({ base64: true });
+            if (!photo?.base64) return;
 
-            if (!photo || !photo.base64) {
-                console.error('Fotoğraf çekilemedi veya base64 verisi yok.');
-                Alert.alert('Hata', 'Fotoğraf çekilemedi. Lütfen tekrar deneyin.');
-                return;
-            }
-
-            const apiUrl = 'http://127.0.0.1:5001/squat'; // Burayı kendi IP adresine göre ayarla!
-
-            const response = await fetch(apiUrl, {
+            const response = await fetch('http://192.168.1.120:5001/squat', {
+                // Burada IP adresini kendi local IP’n ile değiştir!
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -50,29 +46,23 @@ export default function App() {
                 body: JSON.stringify({ image: photo.base64 }),
             });
 
-            if (!response.ok) {
-                console.error('Sunucu hatası:', response.status);
-                Alert.alert('Hata', 'Sunucu ile iletişim kurulamadı.');
-                return;
-            }
-
             const data = await response.json();
-            console.log('Gelen veri:', data);
+            const angle = data.squat_angle;
 
-            if (data.squat_angle !== undefined && data.squat_angle !== null) {
-                setSquatAngle(data.squat_angle);
-            } else {
-                console.error('Gelen veride squat açısı yok.');
-                Alert.alert('Hata', 'Squat açısı alınamadı.');
+            if (angle !== undefined && angle !== null) {
+                setSquatAngle(angle);
+
+                // Doğruluk kontrolü
+                if (angle >= 85 && angle <= 100) {
+                    setSquatStatus('Doğru');
+                } else {
+                    setSquatStatus('Yanlış');
+                }
             }
-
         } catch (error) {
-            console.error('Fotoğraf gönderim hatası:', error);
-            Alert.alert('Hata', 'Bir hata oluştu. Lütfen tekrar deneyin.');
-        } finally {
-            setLoading(false);
+            console.error('Hata:', error);
         }
-    }
+    };
 
     return (
         <View style={styles.container}>
@@ -81,52 +71,56 @@ export default function App() {
                     <TouchableOpacity style={styles.button} onPress={toggleCameraFacing}>
                         <Text style={styles.text}>Kamerayı Çevir</Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.button} onPress={captureAndSendPhoto} disabled={loading}>
-                        <Text style={styles.text}>
-                            {loading ? 'Yükleniyor...' : 'Fotoğraf Gönder'}
-                        </Text>
-                    </TouchableOpacity>
                 </View>
             </CameraView>
 
-            {squatAngle !== null && (
-                <View style={styles.angleContainer}>
-                    <Text style={styles.angleText}>Squat Açısı: {squatAngle.toFixed(2)}°</Text>
-                </View>
-            )}
+            <View style={styles.resultContainer}>
+                {squatAngle !== null && (
+                    <Text style={styles.angleText}>Açı: {squatAngle.toFixed(2)}°</Text>
+                )}
+                {squatStatus && (
+                    <Text style={[styles.statusText, { color: squatStatus === 'Doğru' ? 'green' : 'red' }]}>
+                        {squatStatus === 'Doğru' ? '✔️ Doğru Squat' : '❌ Yanlış Squat'}
+                    </Text>
+                )}
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    camera: {
-        flex: 1,
-    },
+    container: { flex: 1 },
+    camera: { flex: 1 },
     buttonContainer: {
+        position: 'absolute',
+        bottom: 20,
+        left: 0,
+        right: 0,
         flexDirection: 'row',
-        backgroundColor: 'transparent',
-        margin: 32,
+        justifyContent: 'center',
     },
     button: {
-        flex: 1,
-        alignSelf: 'flex-end',
-        alignItems: 'center',
+        backgroundColor: '#00000080',
+        padding: 10,
+        borderRadius: 8,
     },
     text: {
-        fontSize: 18,
-        fontWeight: 'bold',
         color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
     },
-    angleContainer: {
-        padding: 20,
+    resultContainer: {
         alignItems: 'center',
+        padding: 20,
+        backgroundColor: 'white',
     },
     angleText: {
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    statusText: {
         fontSize: 24,
         fontWeight: 'bold',
+        marginTop: 10,
     },
 });

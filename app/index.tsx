@@ -17,7 +17,7 @@ export default function Index() {
 
   return (
     <ImageBackground
-      source={require("../../assets/images/wpaper.jpg")}
+      source={require("../assets/images/wpaper.jpg")}
       style={styles.background}
     >
       <View style={styles.container}>
@@ -41,7 +41,7 @@ export default function Index() {
               label="Başla"
               onPress={() => {
                 if (selectedOption) {
-                  router.push("/tabs/cameraScreen"); // veya dosya yolu farklıysa ona göre ayarla
+                  router.push("/cameraScreen"); // veya dosya yolu farklıysa ona göre ayarla
                 } else {
                   alert("Lütfen bir egzersiz seçin.");
                 }
